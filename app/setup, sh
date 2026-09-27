@@ -1,0 +1,244 @@
+#!/bin/bash
+mkdir -p app/src/main/java/com/mycompany/app
+mkdir -p app/src/main/assets
+mkdir -p app/src/main/res/values
+mkdir -p app/src/main/res/mipmap-anydpi-v26
+mkdir -p .github/workflows
+
+cat > build.gradle.kts << 'EOF'
+plugins {
+    id("com.android.application") version "8.5.2" apply false
+}
+EOF
+
+cat > gradle.properties << 'EOF'
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+android.useAndroidX=true
+android.nonTransitiveRClass=true
+EOF
+
+cat > app/build.gradle.kts << 'EOF'
+plugins {
+    id("com.android.application")
+}
+
+android {
+    namespace = "com.mycompany.app"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.mycompany.app"
+        minSdk = 24
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation("androidx.appcompat:appcompat:1.7.0")
+}
+EOF
+
+cat > app/src/main/AndroidManifest.xml << 'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:usesCleartextTraffic="true"
+        android:theme="@style/Theme.HtmlToApk">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
+EOF
+
+cat > app/src/main/java/com/mycompany/app/MainActivity.java << 'EOF'
+package com.mycompany.app;
+
+import android.annotation.SuppressLint;
+import android.app.AlertDialog;
+import android.os.Bundle;
+import android.view.KeyEvent;
+import android.view.WindowManager;
+import android.webkit.WebChromeClient;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import androidx.appcompat.app.AppCompatActivity;
+
+public class MainActivity extends AppCompatActivity {
+    private WebView webView;
+
+    @SuppressLint("SetJavaScriptEnabled")
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        webView = new WebView(this);
+        setContentView(webView);
+        WebSettings s = webView.getSettings();
+        s.setJavaScriptEnabled(true);
+        s.setDomStorageEnabled(true);
+        s.setAllowFileAccess(true);
+        s.setAllowContentAccess(true);
+        s.setMediaPlaybackRequiresUserGesture(false);
+        s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        webView.setWebViewClient(new WebViewClient());
+        webView.setWebChromeClient(new WebChromeClient());
+        webView.loadUrl("file:///android_asset/index.html");
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            if (webView.canGoBack()) {
+                webView.goBack();
+                return true;
+            }
+            new AlertDialog.Builder(this)
+                .setTitle("Выйти?")
+                .setMessage("Вы действительно хотите выйти?")
+                .setNegativeButton("Отмена", (d, w) -> d.dismiss())
+                .setPositiveButton("Выйти", (d, w) -> finish())
+                .show();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (webView != null) webView.destroy();
+        super.onDestroy();
+    }
+}
+EOF
+
+cat > app/src/main/assets/index.html << 'EOF'
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Моё приложение</title>
+<style>
+body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; text-align: center; }
+h1 { font-size: 28px; }
+button { padding: 14px 28px; font-size: 16px; border: none; border-radius: 10px; background: #fff; color: #764ba2; font-weight: 600; margin-top: 20px; }
+</style>
+</head>
+<body>
+<h1>Привет из APK! 🎉</h1>
+<p>Это настоящее Android-приложение.</p>
+<button onclick="alert('Работает!')">Нажми меня</button>
+</body>
+</html>
+EOF
+
+cat > app/src/main/res/values/strings.xml << 'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Моё приложение</string>
+</resources>
+EOF
+
+cat > app/src/main/res/values/themes.xml << 'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.HtmlToApk" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:statusBarColor">#007aff</item>
+    </style>
+</resources>
+EOF
+
+cat > app/src/main/res/values/colors.xml << 'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#007aff</color>
+</resources>
+EOF
+
+cat > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml << 'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background"/>
+    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+</adaptive-icon>
+EOF
+
+cat > app/src/main/res/mipmap-anydpi-v26/ic_launcher_foreground.xml << 'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,30 L54,78 M30,54 L78,54"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6"/>
+</vector>
+EOF
+
+cat > .github/workflows/build.yml << 'EOF'
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build APK
+        run: |
+          gradle wrapper --gradle-version 8.7
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+EOF
+
+echo "Готово! Все файлы созданы."
